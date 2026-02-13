@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valentine 💖</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #ff9a9e, #fad0c4);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* ================= BOOK ================= */
+
+        #bookContainer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .book {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            perspective: 2500px;
+        }
+
+        .paper {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-origin: left;
+            transform-style: preserve-3d;
+            transition: transform 1s ease;
+        }
+
+        .paper.flipped {
+            transform: rotateY(-180deg);
+        }
+
+        .page {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            background: white;
+            padding: 40px;
+            box-sizing: border-box;
+            backface-visibility: hidden;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .page.left {
+            left: 0;
+        }
+
+        .page.right {
+            right: 0;
+        }
+
+        .back {
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener("resize", init);
+
+        // ================= CONFIG =================
+        const MESSAGES = [
+            `Chúc em có một ngày Valentine
+ngập tràn yêu thương 💖`,
+
+            `Hi vọng mối quan hệ chúng ta ngày càng tốt hơn 💕`,
+            `Đừng để ai cô đơn trong chính tình yêu của họ`,
+            `Hãy đặt  mình vào vị trí của đối phương`,
+            `Chúng ta sẽ hiểu được cảm giác của họ.`
+        ];
+
+        const GAP = 5;
+        // GAP động theo font
+
+        let currentMessage = 0;
+        let phase = "merge";
+        let phaseStart = null;
+
+        const HEART_SIZE = 3.2;
+        const MERGE_DURATION = 8000;
+        const HOLD_DURATION = 4000;
+        const BREAK_DURATION = 3000;
+        // const TOTAL_TIME = FLOAT_TIME + MERGE_TIME;
+        // ==========================================
+
+        let particles = [];
+        let startTime = null;
+
+        function createParticles() {
+
+            particles = [];
+
+            const offCanvas = document.createElement("canvas");
+            const offCtx = offCanvas.getContext("2d");
+
+            offCanvas.width = canvas.width;
+            offCanvas.height = canvas.height;
+
+            offCtx.fillStyle = "white";
+            offCtx.textAlign = "center";
+            offCtx.textBaseline = "top";
+
+            // ===== 1. AUTO WRAP =====
+            function wrapText(ctx, text, maxWidth) {
+                const words = text.split(" ");
+                let lines = [];
+                let line = "";
+
+                for (let i = 0; i < words.length; i++) {
+                    let testLine = line + words[i] + " ";
+                    let width = ctx.measureText(testLine).width;
+
+                    if (width > maxWidth && i > 0) {
+                        lines.push(line.trim());
+                        line = words[i] + " ";
+                    } else {
+                        line = testLine;
+                    }
+                }
+
+                lines.push(line.trim());
+                return lines;
+            }
+
+            // ===== 2. TÍNH FONT SIZE TỰ ĐỘNG =====
+            let fontSize = Math.min(canvas.width, canvas.height) / 4;
+            const maxWidth = canvas.width * 0.85;
+            let lines;
+
+            while (fontSize > 24) {
+
+                offCtx.font = `600 ${fontSize}px "Segoe UI", sans-serif`;
+
+                lines = wrapText(offCtx, MESSAGES[currentMessage]
+                    .replace(/\n/g, " "), maxWidth);
+
+                const totalHeight = lines.length * fontSize * 1.4;
+
+                const tooWide = lines.some(line =>
+                    offCtx.measureText(line).width > maxWidth
+                );
+
+                const tooTall = totalHeight > canvas.height * 0.8;
+
+                if (!tooWide && !tooTall) break;
+
+                fontSize -= 2;
+            }
+
+            // ===== 3. GAP động =====
+            const dynamicGap = Math.max(3, Math.floor(fontSize / 22));
+
+            // ===== 4. VẼ TEXT =====
+            const lineHeight = fontSize * 1.4;
+            const totalHeight = lines.length * lineHeight;
+            const startY = canvas.height / 2 - totalHeight / 2;
+
+            offCtx.font = `600 ${fontSize}px "Segoe UI", sans-serif`;
+
+            lines.forEach((line, i) => {
+                offCtx.fillText(line, canvas.width / 2, startY + i * lineHeight);
+            });
+
+            const imageData = offCtx.getImageData(
+                0, 0, canvas.width, canvas.height
+            ).data;
+
+            // ===== 5. LẤY ĐIỂM CHỮ =====
+            for (let y = 0; y < canvas.height; y += dynamicGap) {
+                for (let x = 0; x < canvas.width; x += dynamicGap) {
+
+                    const index = (y * canvas.width + x) * 4;
+
+                    if (imageData[index + 3] > 150) {
+                        particles.push({
+                            sx: Math.random() * canvas.width,
+                            sy: Math.random() * canvas.height,
+                            x: 0,
+                            y: 0,
+                            tx: x,
+                            ty: y,
+                            floatX: (Math.random() - 0.5) * 0.6,
+                            floatY: (Math.random() - 0.5) * 0.6
+                        });
+                    }
+                }
+            }
+
+            particles.forEach(p => {
+                p.x = p.sx;
+                p.y = p.sy;
+            });
+        }
+
+
+        function drawHeart(x, y, size) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.bezierCurveTo(x, y - size, x - size, y - size, x - size, y);
+            ctx.bezierCurveTo(x - size, y + size, x, y + size, x, y + size * 1.6);
+            ctx.bezierCurveTo(x, y + size * 1.6, x + size, y + size, x + size, y);
+            ctx.bezierCurveTo(x + size, y - size, x, y - size, x, y);
+            ctx.fill();
+        }
+
+        function animate(timestamp) {
+
+            if (!phaseStart) phaseStart = timestamp;
+            const elapsed = timestamp - phaseStart;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#ff2e63";
+
+            particles.forEach(p => {
+
+                if (phase === "merge") {
+
+                    let progress = elapsed / MERGE_DURATION;
+                    if (progress > 1) progress = 1;
+
+                    const ease = 1 - Math.pow(1 - progress, 3);
+
+                    p.x = p.sx + (p.tx - p.sx) * ease;
+                    p.y = p.sy + (p.ty - p.sy) * ease;
+
+                }
+
+                else if (phase === "hold") {
+
+                    // giữ nguyên vị trí text
+                    p.x = p.tx;
+                    p.y = p.ty;
+
+                }
+
+                else if (phase === "break") {
+
+                    p.x += (Math.random() - 0.5) * 6;
+                    p.y += (Math.random() - 0.5) * 6;
+
+                }
+
+                drawHeart(p.x, p.y, HEART_SIZE);
+            });
+
+            // ===== CHUYỂN PHASE =====
+
+            if (phase === "merge" && elapsed >= MERGE_DURATION) {
+                phase = "hold";
+                phaseStart = timestamp;
+            }
+
+            else if (phase === "hold" && elapsed >= HOLD_DURATION) {
+
+                // Nếu là message cuối -> đứng yên sau khi hold 3s
+                if (currentMessage === MESSAGES.length - 1) {
+                    return; // dừng hoàn toàn
+                }
+
+                phase = "break";
+                phaseStart = timestamp;
+            }
+
+            else if (phase === "break" && elapsed >= BREAK_DURATION) {
+
+                currentMessage++;
+
+                createParticles();
+                phase = "merge";
+                phaseStart = timestamp;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function init() {
+            startTime = null;
+            createParticles();
+            requestAnimationFrame(animate);
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>

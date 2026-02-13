@@ -1,0 +1,68 @@
+/* ================= BOOK ================= */
+
+.book-wrapper {
+  position: fixed;
+  inset: 0;
+  display: none; /* ép ẩn tuyệt đối */
+  justify-content: center;
+  align-items: center;
+  perspective: 2500px;
+  z-index: 20;
+}
+
+.book {
+  position: relative;
+  width: 50%;
+  max-width: 420px;
+  height: 75vh;
+  max-height: 600px;
+}
+
+.paper {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  transform-style: preserve-3d;
+  transform-origin: left;
+  transition: transform 1s ease;
+}
+
+.paper.flipped {
+  transform: rotateY(-180deg);
+}
+
+.front,
+.back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.front {
+  background: #fff0f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 18px;
+  color: #d6336c;
+}
+
+.back {
+  transform: rotateY(180deg);
+  background: #fff;
+}
+
+.back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
